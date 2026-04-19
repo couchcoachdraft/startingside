@@ -8,8 +8,9 @@
     :root{
       --bg:#0b1220; --card:#111a2e; --text:#e7eefc; --muted:#a9b7d6;
       --line:rgba(231,238,252,.14); --accent:#7aa2ff;
+
       --qcol:64px; --namecol:200px; --notescol:320px; --countcol:70px; --actionscol:100px;
-      --stickyTop: 132px; /* updated via JS */
+      --stickyTop: 140px; /* updated by JS */
     }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
     header{
@@ -17,23 +18,22 @@
       background:linear-gradient(180deg,rgba(11,18,32,.98),rgba(11,18,32,.90));
       backdrop-filter:blur(6px);z-index:20;
     }
-    header h1{margin:0 0 6px 0;font-size:18px;letter-spacing:.2px;}
+    header h1{margin:0 0 6px 0;font-size:18px;}
     header p{margin:0;color:var(--muted);font-size:13px;line-height:1.4;}
     main{padding:16px;display:grid;gap:14px;}
 
     .toolbar{
       background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;
-      position:sticky; top: 72px; z-index: 15;
+      position:sticky; top: 72px; z-index:15;
     }
     .toolbar-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between;}
     .left,.right{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
     .status{margin-top:8px;color:var(--muted);font-size:12px;min-height:16px;}
 
-    input[type="text"], textarea{
+    input[type="text"]{
       background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);
-      padding:8px 10px;border-radius:10px;outline:none;
+      padding:8px 10px;border-radius:10px;outline:none;width:220px;
     }
-    input[type="text"]{width:220px;}
     button{
       background:rgba(122,162,255,.16);color:var(--text);
       border:1px solid rgba(122,162,255,.35);padding:8px 10px;border-radius:10px;cursor:pointer;
@@ -54,7 +54,7 @@
     .table-wrap{overflow-x:auto;}
     table{
       border-collapse:collapse;width:100%;
-      table-layout:fixed; /* key to consistent column alignment */
+      table-layout:fixed;
       min-width: calc(var(--namecol) + (10 * var(--qcol)) + var(--notescol) + var(--countcol) + var(--actionscol));
     }
     col.name { width: var(--namecol); }
@@ -85,9 +85,7 @@
 <body>
   <header id="page-header">
     <h1>AFL Fantasy Watchlist Checklist</h1>
-    <p>
-      Tick the role-security questions per player. Notes + ticks save locally. Use Export/Import to move between devices.
-    </p>
+    <p>Build your watchlist by line. Tick each question, add notes, and export/import to carry it between devices.</p>
   </header>
 
   <main>
@@ -95,15 +93,13 @@
       <div class="toolbar-row">
         <div class="left">
           <button id="btn-export">Export .json</button>
-          <label>
-            <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
-            <button id="btn-import">Import .json (replace)</button>
-          </label>
+
+          <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
+          <button id="btn-import">Import .json (replace)</button>
+
           <button class="danger" id="btn-wipe">Wipe local data</button>
         </div>
-        <div class="right small">
-          Tip: Export after trades / weekly review
-        </div>
+        <div class="right small">Tip: export after your weekly review</div>
       </div>
       <div class="status" id="status"></div>
     </section>
@@ -145,7 +141,10 @@
       { key: "FWD",  title: "FWD" }
     ];
 
-    const STORAGE_KEY = "afl_watchlist_v4_file_import_export";
+    const STORAGE_KEY = "afl_watchlist_v5";
+
+    let state = loadState() || defaultState();
+    saveState(state);
 
     function setStatus(msg){ document.getElementById("status").textContent = msg || ""; }
 
@@ -178,8 +177,7 @@
         return normalizeState(JSON.parse(raw));
       }catch{ return null; }
     }
-
-    function saveState(state){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function saveState(s){ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
 
     function newPlayer(name){
       return {
@@ -227,7 +225,6 @@
 
         const table = document.createElement("table");
 
-        // Fixed-width columns to keep alignment perfect
         const colgroup = document.createElement("colgroup");
         const colName = document.createElement("col"); colName.className = "name"; colgroup.appendChild(colName);
         for(let i=0;i<QUESTIONS.length;i++){ const c=document.createElement("col"); c.className="q"; colgroup.appendChild(c); }
@@ -340,4 +337,95 @@
 
         table.appendChild(tbody);
         wrap.appendChild(table);
-        section
+        section.appendChild(wrap);
+        app.appendChild(section);
+
+        const input = section.querySelector(`#input-${pos.key}`);
+        const addBtn = section.querySelector(`#btn-${pos.key}`);
+        const clearBtn = section.querySelector(`#clear-${pos.key}`);
+
+        function addPlayer(){
+          const name = input.value.trim();
+          if(!name) return;
+          state[pos.key].push(newPlayer(name));
+          input.value = "";
+          saveState(state);
+          render();
+        }
+
+        addBtn.addEventListener("click", addPlayer);
+        input.addEventListener("keydown", (e) => { if(e.key === "Enter") addPlayer(); });
+
+        clearBtn.addEventListener("click", () => {
+          if(!confirm(`Clear all players in ${pos.title}?`)) return;
+          state[pos.key] = [];
+          saveState(state);
+          render();
+        });
+      });
+
+      updateStickyTop();
+    }
+
+    // Export to file
+    function exportToFile(){
+      try{
+        const data = JSON.stringify(state, null, 2);
+        const blob = new Blob([data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "afl-watchlist.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setStatus("Exported: afl-watchlist.json");
+      } catch {
+        setStatus("Export failed.");
+      }
+    }
+
+    // Import from file
+    function importFromFile(file){
+      const reader = new FileReader();
+      reader.onload = () => {
+        try{
+          const parsed = JSON.parse(String(reader.result || ""));
+          const next = normalizeState(parsed);
+          if(!confirm("Import will REPLACE your current watchlist on this device. Continue?")) return;
+          state = next;
+          saveState(state);
+          render();
+          setStatus("Import complete.");
+        } catch {
+          setStatus("Import failed: invalid JSON file.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function wipeAll(){
+      if(!confirm("This will delete all locally saved watchlist data on this device/browser. Continue?")) return;
+      state = defaultState();
+      saveState(state);
+      render();
+      setStatus("Local data wiped.");
+    }
+
+    // Wire toolbar
+    document.getElementById("btn-export").addEventListener("click", exportToFile);
+    document.getElementById("btn-import").addEventListener("click", () => document.getElementById("file-import").click());
+    document.getElementById("file-import").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if(file) importFromFile(file);
+      e.target.value = "";
+    });
+    document.getElementById("btn-wipe").addEventListener("click", wipeAll);
+
+    // Initial render
+    render();
+    window.addEventListener("resize", updateStickyTop);
+  </script>
+</body>
+</html>
