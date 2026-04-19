@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AFL Fantasy Watchlist – Role Security Checklist</title>
+  <title>AFL Fantasy Watchlist</title>
   <style>
     :root{
       --bg:#0b1220; --card:#111a2e; --text:#e7eefc; --muted:#a9b7d6;
       --line:rgba(231,238,252,.14); --accent:#7aa2ff;
 
-      --qcol:64px; --namecol:200px; --notescol:320px; --countcol:70px; --actionscol:100px;
-      --stickyTop: 140px; /* updated by JS */
+      --qcol:72px; --namecol:210px; --notescol:340px; --countcol:70px; --actionscol:100px;
+      --stickyTop: 140px;
     }
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
     header{
@@ -24,7 +24,7 @@
 
     .toolbar{
       background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;
-      position:sticky; top: 72px; z-index:15;
+      position:sticky; top:72px; z-index:15;
     }
     .toolbar-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between;}
     .left,.right{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
@@ -53,7 +53,8 @@
 
     .table-wrap{overflow-x:auto;}
     table{
-      border-collapse:collapse;width:100%;
+      border-collapse:collapse;
+      width:100%;
       table-layout:fixed;
       min-width: calc(var(--namecol) + (10 * var(--qcol)) + var(--notescol) + var(--countcol) + var(--actionscol));
     }
@@ -63,21 +64,43 @@
     col.count { width: var(--countcol); }
     col.actions { width: var(--actionscol); }
 
-    th,td{border-bottom:1px solid var(--line);padding:10px 8px;vertical-align:middle;font-size:13px;overflow:hidden;text-overflow:ellipsis;}
+    th, td{
+      border-bottom:1px solid var(--line);
+      padding:10px 8px;
+      vertical-align:middle;
+      font-size:13px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      /* ensure table layout stays table-like even if some CSS leaks in */
+      display: table-cell;
+    }
     th{
-      position:sticky; top: var(--stickyTop);
-      background:rgba(17,26,46,.98);z-index:10;text-align:left;white-space:nowrap;
+      position:sticky;
+      top: var(--stickyTop);
+      background:rgba(17,26,46,.98);
+      z-index:10;
+      text-align:left;
+      white-space:nowrap;
     }
     th.q, td.q{ text-align:center; }
+
     td.player{font-weight:600;white-space:nowrap;}
     td.count, th.count{text-align:center;font-weight:700;}
     td.actions, th.actions{text-align:center;white-space:nowrap;}
 
-    .checkbox{display:grid;place-items:center;}
-    input[type="checkbox"]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;}
+    input[type="checkbox"]{
+      width:18px;height:18px;accent-color:var(--accent);cursor:pointer;
+    }
+
     .notes-input{
-      width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid var(--line);
-      color:var(--text);padding:8px 10px;border-radius:10px;outline:none;
+      width:100%;
+      box-sizing:border-box;
+      background:rgba(255,255,255,.06);
+      border:1px solid var(--line);
+      color:var(--text);
+      padding:8px 10px;
+      border-radius:10px;
+      outline:none;
     }
     .hint{color:var(--muted);font-size:12px;padding:10px 12px;}
   </style>
@@ -85,7 +108,7 @@
 <body>
   <header id="page-header">
     <h1>AFL Fantasy Watchlist Checklist</h1>
-    <p>Build your watchlist by line. Tick each question, add notes, and export/import to carry it between devices.</p>
+    <p>Add players by line. Checkboxes sit under each question. Notes included. Export/Import to move between devices.</p>
   </header>
 
   <main>
@@ -99,7 +122,7 @@
 
           <button class="danger" id="btn-wipe">Wipe local data</button>
         </div>
-        <div class="right small">Tip: export after your weekly review</div>
+        <div class="right small">Export saves a file you can store anywhere</div>
       </div>
       <div class="status" id="status"></div>
     </section>
@@ -141,13 +164,12 @@
       { key: "FWD",  title: "FWD" }
     ];
 
-    const STORAGE_KEY = "afl_watchlist_v5";
+    const STORAGE_KEY = "afl_watchlist_v6";
 
     let state = loadState() || defaultState();
     saveState(state);
 
     function setStatus(msg){ document.getElementById("status").textContent = msg || ""; }
-
     function defaultState(){ return { MIDS: [], RUC: [], DEF: [], FWD: [] }; }
 
     function normalizeState(raw){
@@ -225,6 +247,7 @@
 
         const table = document.createElement("table");
 
+        // fixed-width columns so each checkbox sits directly under its question header
         const colgroup = document.createElement("colgroup");
         const colName = document.createElement("col"); colName.className = "name"; colgroup.appendChild(colName);
         for(let i=0;i<QUESTIONS.length;i++){ const c=document.createElement("col"); c.className="q"; colgroup.appendChild(c); }
@@ -284,9 +307,10 @@
             tdName.textContent = p.name;
             tr.appendChild(tdName);
 
+            // One TD per question (so checkboxes sit under the right header)
             p.checks.forEach((val, idx) => {
               const td = document.createElement("td");
-              td.className = "q checkbox";
+              td.className = "q";
               const cb = document.createElement("input");
               cb.type = "checkbox";
               cb.checked = !!val;
@@ -367,7 +391,6 @@
       updateStickyTop();
     }
 
-    // Export to file
     function exportToFile(){
       try{
         const data = JSON.stringify(state, null, 2);
@@ -386,7 +409,6 @@
       }
     }
 
-    // Import from file
     function importFromFile(file){
       const reader = new FileReader();
       reader.onload = () => {
@@ -413,7 +435,6 @@
       setStatus("Local data wiped.");
     }
 
-    // Wire toolbar
     document.getElementById("btn-export").addEventListener("click", exportToFile);
     document.getElementById("btn-import").addEventListener("click", () => document.getElementById("file-import").click());
     document.getElementById("file-import").addEventListener("change", (e) => {
@@ -423,7 +444,6 @@
     });
     document.getElementById("btn-wipe").addEventListener("click", wipeAll);
 
-    // Initial render
     render();
     window.addEventListener("resize", updateStickyTop);
   </script>
