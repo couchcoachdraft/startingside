@@ -10,8 +10,16 @@
       --line:rgba(231,238,252,.14); --accent:#7aa2ff;
 
       --qcol:72px; --namecol:210px; --notescol:340px; --countcol:70px; --actionscol:100px;
-      --stickyTop: 140px;
+      --stickyTop: 140px; /* updated by JS */
     }
+
+    /* Compact mode to fit more columns on screen */
+    html.compact{
+      --qcol:52px;
+      --namecol:170px;
+      --notescol:220px;
+    }
+
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
     header{
       padding:18px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;
@@ -71,7 +79,6 @@
       font-size:13px;
       overflow:hidden;
       text-overflow:ellipsis;
-      /* ensure table layout stays table-like even if some CSS leaks in */
       display: table-cell;
     }
     th{
@@ -80,9 +87,17 @@
       background:rgba(17,26,46,.98);
       z-index:10;
       text-align:left;
-      white-space:nowrap;
     }
-    th.q, td.q{ text-align:center; }
+
+    /* Let question headers wrap (helps compact mode) */
+    th.q{
+      text-align:center;
+      white-space: normal;
+      line-height: 1.15;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    td.q{ text-align:center; }
 
     td.player{font-weight:600;white-space:nowrap;}
     td.count, th.count{text-align:center;font-weight:700;}
@@ -102,13 +117,17 @@
       border-radius:10px;
       outline:none;
     }
+
     .hint{color:var(--muted);font-size:12px;padding:10px 12px;}
   </style>
 </head>
 <body>
   <header id="page-header">
     <h1>AFL Fantasy Watchlist Checklist</h1>
-    <p>Add players by line. Checkboxes sit under each question. Notes included. Export/Import to move between devices.</p>
+    <p>
+      Add players by line. Tick each question under its column, add notes, and Export/Import to carry between devices.
+      Use <strong>Compact view</strong> to see more columns without scrolling.
+    </p>
   </header>
 
   <main>
@@ -120,9 +139,11 @@
           <input id="file-import" type="file" accept="application/json,.json" style="display:none" />
           <button id="btn-import">Import .json (replace)</button>
 
+          <button id="btn-compact">Compact view</button>
+
           <button class="danger" id="btn-wipe">Wipe local data</button>
         </div>
-        <div class="right small">Export saves a file you can store anywhere</div>
+        <div class="right small">Tip: export after your weekly review</div>
       </div>
       <div class="status" id="status"></div>
     </section>
@@ -164,7 +185,8 @@
       { key: "FWD",  title: "FWD" }
     ];
 
-    const STORAGE_KEY = "afl_watchlist_v6";
+    const STORAGE_KEY = "afl_watchlist_v7";
+    const COMPACT_KEY = "afl_watchlist_compact_v1";
 
     let state = loadState() || defaultState();
     saveState(state);
@@ -247,7 +269,6 @@
 
         const table = document.createElement("table");
 
-        // fixed-width columns so each checkbox sits directly under its question header
         const colgroup = document.createElement("colgroup");
         const colName = document.createElement("col"); colName.className = "name"; colgroup.appendChild(colName);
         for(let i=0;i<QUESTIONS.length;i++){ const c=document.createElement("col"); c.className="q"; colgroup.appendChild(c); }
@@ -307,7 +328,6 @@
             tdName.textContent = p.name;
             tr.appendChild(tdName);
 
-            // One TD per question (so checkboxes sit under the right header)
             p.checks.forEach((val, idx) => {
               const td = document.createElement("td");
               td.className = "q";
@@ -435,6 +455,15 @@
       setStatus("Local data wiped.");
     }
 
+    // Compact toggle
+    function setCompact(on){
+      document.documentElement.classList.toggle("compact", on);
+      localStorage.setItem(COMPACT_KEY, on ? "1" : "0");
+      document.getElementById("btn-compact").textContent = on ? "Normal view" : "Compact view";
+      updateStickyTop();
+    }
+
+    // Wire toolbar
     document.getElementById("btn-export").addEventListener("click", exportToFile);
     document.getElementById("btn-import").addEventListener("click", () => document.getElementById("file-import").click());
     document.getElementById("file-import").addEventListener("change", (e) => {
@@ -444,6 +473,13 @@
     });
     document.getElementById("btn-wipe").addEventListener("click", wipeAll);
 
+    document.getElementById("btn-compact").addEventListener("click", () => {
+      const on = !document.documentElement.classList.contains("compact");
+      setCompact(on);
+    });
+
+    // Init
+    setCompact(localStorage.getItem(COMPACT_KEY) === "1");
     render();
     window.addEventListener("resize", updateStickyTop);
   </script>
